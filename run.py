@@ -97,9 +97,10 @@ def signup():
 	print "Wrote to database:"
 	# print "Db at " + phone_in + " " + db[phone_in]
 
-    hn_bool = True if request.form.get('check_hn')!=None else False
-    facebook_bool = True if request.form.get('check_fb')!=None else False
-    twitter_bool = True if request.form.get('check_tw')!=None else False
+
+	hn_bool = True if request.form.get('check_hn')!=None else False
+	facebook_bool = True if request.form.get('check_fb')!=None else False
+	twitter_bool = True if request.form.get('check_tw')!=None else False
 
 
 	# Tell the user what he has registered for
