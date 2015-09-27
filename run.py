@@ -1,5 +1,3 @@
-import sys
-
 from flask import Flask, request, redirect, session, render_template
 from twilio.rest import TwilioRestClient 
 import twilio.twiml
@@ -41,8 +39,8 @@ _twitter = oauth.remote_app('twitter',
     # user interface on the twitter side.
     authorize_url='https://api.twitter.com/oauth/authenticate',
     # the consumer keys from the twitter application registry.
-    consumer_key=consumer_key,
-    consumer_secret=consumer_secret
+    consumer_key='pfN8ThAB7BRVxiLgwdNZGsZgx',
+    consumer_secret='KmoKfwtczF9feghCp9msCHr8lh0U7yfOPwdkuePrsku58yv54b'
 )
 
 # Load up the database (persistent dictionary)
@@ -59,7 +57,7 @@ app.secret_key = "development key"
 
 @app.route('/')
 def index():
-	return render_template('index.html', name = __name__)
+    return render_template('index.html', name = __name__)
 
 @app.route('/signup', methods = ['POST'])
 def signup():
@@ -110,11 +108,10 @@ def get_twitter_token(token = None):
 def login():
     access_token = session.get('access_token')
     access_token_secret = session.get('access_token_secret')
-    print access_token, access_token_secret
+    # print access_token, access_token_secret
     if access_token is None:
         return _twitter.authorize(callback=url_for('oauth_authorized',
         next=request.args.get('next') or request.referrer or None)) 
-
     return redirect('/')
 
 @app.route('/logout')
@@ -155,7 +152,7 @@ def get_twitter_account_tokens(from_num):
     	access_token_secret = ""
     print "GTAT", access_token, access_token_secret
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(acc_token, acc_token_secret)
+    auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
     return api
 
@@ -175,7 +172,17 @@ def read_tweets():
 def tweet(from_num, tweet_content):
     api = get_twitter_account_tokens();
     api.update_status(tweet_content)
-    #return redirect("/")
+
+####################################################################################
+###### Hacker News API #############################################################
+####################################################################################
+
+@app.route('/news')
+def get_news():
+    hn = HackerNews()
+    news = ""
+    for story_id in hn.top_stories(limit=10):
+        news = news + hn.get_item(story_id).title + "\n"
 
 # Create a list of registered numbers that can call
 callers = {
@@ -188,8 +195,6 @@ def respond_to_user():
     """
     Reply to the user's message with the appropriate response.
     """
-    print session.get("access_token")
-
     # Count the number of times this user has texed us (this session)
     counter = session.get("counter", 0)
     counter += 1
@@ -252,7 +257,7 @@ def menu():
     session["state"] = "menu"
 
     # Define message components
-    header = "Welcome to Fetch!\n\n"
+    header = "Welcome to HackTX!\n\n"
     question = "What would you like to do?\n"
     op1 = "1) Email\n"
     op2 = "2) Facebook\n"
@@ -266,6 +271,8 @@ def menu():
     # Create the response and attach the message
     resp = twilio.twiml.Response()
     resp.message(text)
+
+    print "Listing options"
 
     return resp
 
@@ -344,7 +351,6 @@ def twitter():
     """
     Display main menu for Twitter.
     """
-    print session.get('access_token')
     # Update the state
     session["state"] = "twitter"
 
@@ -390,7 +396,6 @@ def post_tweet():
     """
     Ask the user what they would like to write, and post it.
     """
-    print session.get('access_token')
     # Update the state
     session["state"] = "posttweet"
 
@@ -566,7 +571,7 @@ state_trans = {
     # Twitter
     "twitter": handle_twitter_menu_choice,
     "readtweets": read_tweets,
-    "posttweet": handle_twitter_post,
+    "posttweet": post_tweet,
     # Wikipedia
     "wikipedia": handle_wikipedia_menu_choice
 }
