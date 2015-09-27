@@ -9,6 +9,9 @@ from flask_oauthlib.client import OAuth
 from flask import Flask, request, redirect, url_for, session, g, flash, \
      render_template
 from flask_oauth import OAuth
+
+import tweepy
+from flask.ext.tweepy import Tweepy
  
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -18,6 +21,9 @@ from sqlalchemy.ext.declarative import declarative_base
 # put your own credentials here 
 ACCOUNT_SID = "AC88218c95eb28488e2e09a3e11f5e41f0" 
 AUTH_TOKEN = "26186a1b74c792f7e6cbfa64f39db691" 
+
+
+
  
 client = TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN) 
 
@@ -26,12 +32,18 @@ app.config.from_object(__name__)
 app.debug = True
 app.secret_key = "development key"
 oauth = OAuth()
+
+
+auth = tweepy.OAuthHandler("pfN8ThAB7BRVxiLgwdNZGsZgx", 'KmoKfwtczF9feghCp9msCHr8lh0U7yfOPwdkuePrsku58yv54b')
+auth.set_access_token('3008431471-HqHddaolepGh0QYf1eEGWtFctHP2g2FsjiNsH97', 'vQ1NAdYtsXd6aKIee38VNvsuhSUVo9G8gA4hi9TYRjPJq')
+api = tweepy.API(auth)
+
 # app.config.from_pyfile('local_settings.py')
 # Use Twitter as example remote application
 twitter = oauth.remote_app('twitter',
     # unless absolute urls are used to make requests, this will be added
     # before all URLs.  This is also true for request_token_url and others.
-    base_url='https://api.twitter.com/1/',
+    base_url='https://api.twitter.com/1.1/',
     # where flask should look for new request tokens
     request_token_url='https://api.twitter.com/oauth/request_token',
     # where flask should exchange the token with the remote application
@@ -48,37 +60,26 @@ twitter = oauth.remote_app('twitter',
  
 @twitter.tokengetter
 def get_twitter_token(token=None):
+    if session.has_key('twitter_token'):
+        del session['twitter_token']
     return session.get('twitter_token')
 
 
 @app.route('/')
-def landingpage():
-	#twitter api
+def index():
+    return render_template('index.html', name = __name__)
 
-	if request.method == 'POST':
-        if request.form['submit'] == 'Sign in with Twitter':
-        	access_token = session.get('access_token')
-        	if access_token is None:
-				return redirect(url_for('login'))
-			else:
-				access_token = access_token[0]
-            # pass # do something
-            
-        # elif request.form['submit'] == 'Do Something Else':
-        #     pass # do something else
-        # else:
-        #     pass # unknown
-	
- 
-	
-
-	return render_template('index.html', name = __name__)
 
 #twitter api
 @app.route('/login')
 def login():
-    return twitter.authorize(callback=url_for('oauth_authorized',
+    access_token = session.get('access_token')
+    if access_token is None:
+        return twitter.authorize(callback=url_for('oauth_authorized',
         next=request.args.get('next') or request.referrer or None))
+ 
+    access_token = access_token[0]
+    return redirect('/tweet')
  
  #twitter api
 @app.route('/logout')
@@ -87,6 +88,19 @@ def logout():
     flash('You were signed out')
     return redirect(request.referrer or url_for('index'))
  
+@app.route('/tweet')
+def tweet():
+    status = api.update_status('This is another extra test message for #hacktx')
+    return redirect('/')
+
+@app.route('/gettweets')
+def get_tweets():
+    public_tweets = api.home_timeline()
+    for tweet in public_tweets:
+        
+        while (count < 5):
+            print tweet
+    return redirect('/')
  
 @app.route('/oauth-authorized')
 @twitter.authorized_handler
@@ -105,7 +119,6 @@ def oauth_authorized(resp):
         resp['oauth_token_secret']
     )
     
- 
     return redirect(url_for('index'))
 
 @app.route('/signup', methods = ['POST'])
@@ -134,30 +147,30 @@ callers = {
 	"+18325170044": "Zhifan"
 }
 
-@app.route("/", methods = ["GET", "POST"])
-def respond_to_user():
-	"""
-	Respond to a text message using the sender's name.
-	"""
-	# Get the number of the user who texted me
-	from_num = request.values.get("From", None)
-	if from_num in callers:
-		return_mess = callers[from_num] + ", thanks for texting me!"
-	else:
-		return_mess = "I don't know who you are, but thanks for the text!"
+# @app.route("/", methods = ["GET", "POST"])
+# def respond_to_user():
+# 	"""
+# 	Respond to a text message using the sender's name.
+# 	"""
+# 	# Get the number of the user who texted me
+# 	from_num = request.values.get("From", None)
+# 	if from_num in callers:
+# 		return_mess = callers[from_num] + ", thanks for texting me!"
+# 	else:
+# 		return_mess = "I don't know who you are, but thanks for the text!"
 	
-	# Send them their message back.
-	return_mess += "\n\n"
-	return_mess += "This is what you texted me: \n"
-	body = request.values.get("Body", None)
-	if body != None:
-		return_mess += body
-	else:
-		return_mess += "You sent nothing :("
-	resp = twiml.Response()
-	resp.message(return_mess)
-	return str(resp)
+# 	# Send them their message back.
+# 	return_mess += "\n\n"
+# 	return_mess += "This is what you texted me: \n"
+# 	body = request.values.get("Body", None)
+# 	if body != None:
+# 		return_mess += body
+# 	else:
+# 		return_mess += "You sent nothing :("
+# 	resp = twiml.Response()
+# 	resp.message(return_mess)
+# 	return str(resp)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
 
