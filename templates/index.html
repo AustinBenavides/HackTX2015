@@ -5,22 +5,30 @@
       
     </head>
     <body>
-     <form action="/signup" method="post">
-      Phone:<input type="tel" name="phone"></input><br>
-    Name: <input type="text" name="name"></input><br>
-    <input type="checkbox" name="email"> Email<br>
-    <input type="checkbox" name="facebook"> Facebook<br>
-    <input type="checkbox" name="twitter"> Twitter<br>
-    {% block body %}
-
-    
-    
-      <a href="{{ url_for('login') }}"><img src="http://triberr.com/assets/img/btns/sign-in-twitter.png" alt="sign in"></a>
-      <a href="{{ url_for('read_tweets') }}">read tweets</a>
-      <a href="{{ url_for('tweet') }}">tweet</a>
-{% endblock %}
-    <input type="submit" value="Signup"></input>
-
-  </form>
+      <form action="/signup" method="post">
+        Phone:<input type="tel" name="phone" onBlur="storeInfo()"></input><br>
+        Name: <input type="text" name="name" onBlur="storeInfo()"></input><br>
+        <input type="checkbox" name="email"> Email<br>
+        <input type="checkbox" name="facebook"> Facebook<br>
+        <input type="checkbox" name="twitter"> Twitter<br>
+        {% block body %}
+        <a href="{{ url_for('login') }}"><img src="http://triberr.com/assets/img/btns/sign-in-twitter.png" alt="sign in"></a>
+        <a href="{{ url_for('read_tweets') }}">read tweets</a>
+        <a href="{{ url_for('tweet') }}">tweet</a>
+        {% endblock %}
+        <input type="submit" value="Signup"></input>
+      </form>
     </body>
+
+    <script type="text/javascript">
+      var form = document.forms[0];
+
+      function storeInfo() {    
+        var phone = form['phone'].value;
+        document.cookie = "phone" + "=" + phone;
+        var name = form["name"].value;
+        document.cookie = "name" + "=" + name;
+      }
+    
+    </script>
 </html>
