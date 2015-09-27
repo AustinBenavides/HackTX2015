@@ -1,0 +1,55 @@
+Metadata-Version: 2.0
+Name: pickleDB
+Version: 0.4
+Summary: A lightweight and simple database using json.
+Home-page: http://bitbucket.org/patx/pickledb
+Author: Harrison Erd
+Author-email: patx44@gmail.com
+License: three-clause BSD
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Database
+
+pickleDB
+--------
+
+pickleDB is lightweight, fast, and simple database based on Python's own 
+json module. And it's BSD licensed!
+
+pickleDB is Fun
+```````````````
+
+::
+
+    >>> import pickledb
+
+    >>> db = pickledb.load('test.db', False)
+
+    >>> db.set('key', 'value')
+
+    >>> db.get('key')
+    'value'
+
+    >>> db.dump()
+    True
+
+
+And Easy to Install
+```````````````````
+
+::
+
+    $ pip install pickledb
+
+Links
+`````
+
+* `website <http://packages.python.org/pickleDB/>`_
+* `documentation <http://packages.python.org/pickleDB/commands.html>`_
+* `bitbucket repo
+  <https://bitbucket.org/patx/pickledb>`_
+
+
+
