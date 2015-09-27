@@ -442,6 +442,11 @@ def handle_twitter_read():
 				# Create the message
 				resp.message(tweet_str)
 				print tweet_str
+			# Ask the user if they want to do anything else.
+			question = "Would you like to read more tweets?\n\n"
+		    prompt = "Text a number (1-25) to receive tweets, BACK to return to the previous menu, or MENU to return to the main menu."
+		    text = question + prompt
+		    resp.message(text)
 			return resp
 		except tweepy.TweepError as e:
 			print e
@@ -488,6 +493,11 @@ def handle_twitter_post():
 			header = "Tweet posted to : " + db[tweet_from_num]["screen_name"] +"\n\n"
 			text = header + tweet_text
 			resp.message(text)
+			# Ask the user if they want to do anything else.
+			question = "Would you like to post another tweet?\n\n"
+		    prompt = "Send a text with anything (but BACK or MENU) to post it to twitter, BACK to return to the previous menu, or MENU to return to the main menu."
+		    text = question + prompt
+		    resp.message(text)
 			return resp
 		except tweepy.TweepError as e:
 			print e
