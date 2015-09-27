@@ -97,8 +97,13 @@ def signup():
 	print "Wrote to database:"
 	# print "Db at " + phone_in + " " + db[phone_in]
 
+    hn_bool = True if request.form.get('check_hn')!=None else False
+    facebook_bool = True if request.form.get('check_fb')!=None else False
+    twitter_bool = True if request.form.get('check_tw')!=None else False
+
+
 	# Tell the user what he has registered for
-	features = ("EMAIL\n" if email_bool else "") + (" FACEBOOK\n" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
+	features = ("HACKERNEWS\n" if hn_bool else "") + (" FACEBOOK\n" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
 	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled the following features:\n" + features + "\n" + "Text MENU to get instructions!",
 	to=phone_in,  # Replace with your phone number
 	from_=TWILIO_NUM) # Replace with your Twilio number
