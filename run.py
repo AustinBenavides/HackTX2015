@@ -1,3 +1,5 @@
+import sys
+
 from flask import Flask, request, redirect, session, render_template
 from twilio.rest import TwilioRestClient 
 import twilio.twiml
@@ -17,6 +19,7 @@ import facebook
 
 
 ###Twilio Account Credentials -- specific to Austin's account
+TWILIO_NUM = "+14695072796"
 ACCOUNT_SID = "ACba6adc0042509e7ced6d2bbbb700b8e6" 
 AUTH_TOKEN = "c51fd911c53fde73d78848b3f1bd4ca7" 
 
@@ -97,13 +100,14 @@ def signup():
 	db[phone_in] = {"name": name_in, "screen_name": twitter_screen_name, "access_token": twitter_access_token,
 	"access_token_secret": twitter_access_token_secret}
 
-	print "Wrote to database"
+	print "Wrote to database:"
+	print "Db at " + phone_in + " " + db[phone_in]
 
 	# Tell the user what he has registered for
-	features = ("EMAIL" if email_bool else "") + (" FACEBOOK" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
-	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled "+ features + " features. Text the feature name to get instructions!",
+	features = ("EMAIL\n" if email_bool else "") + (" FACEBOOK\n" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
+	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled the following features:\n" + features + "\n" + "Text the feature name to get instructions!",
 	to=phone_in,  # Replace with your phone number
-	from_="+14695072796") # Replace with your Twilio number
+	from_=TWILIO_NUM) # Replace with your Twilio number
 
 	return redirect('/')
 
@@ -119,19 +123,19 @@ def get_twitter_token(token = None):
     
 @app.route('/login')
 def login():
+	# Try to get the access token and access token secret
     access_token = session.get('access_token')
     access_token_secret = session.get('access_token_secret')
-    # print access_token, access_token_secret
     if access_token is None:
         return _twitter.authorize(callback=url_for('oauth_authorized',
         next=request.args.get('next') or request.referrer or None)) 
     return redirect('/')
 
-@app.route('/logout')
-def logout():
-    session.pop('screen_name', None)
-    flash('You were signed out')
-    return redirect(request.referrer or url_for('index'))
+# @app.route('/logout')
+# def logout():
+#     session.pop('screen_name', None)
+#     flash('You were signed out')
+#     return redirect(request.referrer or url_for('index'))
  
 @app.route('/oauth-authorized')
 @_twitter.authorized_handler
@@ -161,30 +165,33 @@ def get_twitter_account_tokens(from_num):
     	access_token = db[from_num]["access_token"]
     	access_token_secret = db[from_num]["access_token_secret"]
     else:
+    	# Load two empty strings
     	access_token = ""
     	access_token_secret = ""
-    print "GTAT", access_token, access_token_secret
+    print "Loaded twitter account info:", access_token, access_token_secret
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
     return api
 
 @app.route('/readTweets')
-def read_tweets():
-    api = get_twitter_account_tokens();
-    tweets = api.home_timeline()
-    count = 0
-    for tweet in tweets:
-        print tweet.text
-        # count = count + 1
-        # if (count == tweet_num):
-        #     break
-    return redirect('/')
+def read_n_tweets(from_num, num_to_read):
+	print "in read_tweets"
+	api = get_twitter_account_tokens(from_num)
+	tweets = api.home_timeline()
+	# Get the requested number of tweets
+	print "ok"
+	req_tweets = []
+	for i in range(num_to_read):
+		print "another"
+		req_tweets.append(tweets[i])
+	return req_tweets
 
 @app.route("/tweet")
-def tweet(from_num, tweet_content):
-    api = get_twitter_account_tokens();
-    api.update_status(tweet_content)
+def tweet_text(from_num, tweet_content):
+	print "Database information for " + str(from_num) + str(db[from_num])
+	api = get_twitter_account_tokens(from_num)
+	api.update_status(tweet_content)
 
 ####################################################################################
 ###### Hacker News API #############################################################
@@ -192,10 +199,10 @@ def tweet(from_num, tweet_content):
 
 @app.route('/news')
 def get_news():
-    hn = HackerNews()
-    news = ""
-    for story_id in hn.top_stories(limit=10):
-        news = news + hn.get_item(story_id).title + "\n"
+	hn = HackerNews()
+	news = ""
+	for story_id in hn.top_stories(limit=10):
+		news = news + hn.get_item(story_id).title + "\n"
 
 ####################################################################################
 ###### Facebook API #############################################################
@@ -313,7 +320,7 @@ def menu():
     session["state"] = "menu"
 
     # Define message components
-    header = "Welcome to HackTX!\n\n"
+    header = "Welcome to Fetch!\n\n"
     question = "What would you like to do?\n"
     op1 = "1) Email\n"
     op2 = "2) Facebook\n"
@@ -444,7 +451,10 @@ def read_tweets():
 
     # Generate the response
     resp = twilio.twiml.Response()
-    resp.message("How many tweets would you like to read?")
+    question = "How many tweets would you like to read?\n\n"
+    prompt = "Text a number (1-25) to receive tweets, BACK to return to the previous menu, or MENU to return to the main menu."
+    text = question + prompt
+    resp.message(text)
 
     return resp
 
@@ -461,19 +471,77 @@ def post_tweet():
 
     return resp
 
+def handle_twitter_read():
+	"""
+	Get the number of tweets to read and display that many to the user.
+	"""
+	# Update the state
+	session["state"] = "readingtweets"
+
+	tweet_req = int(request.values.get("Body", None))
+	tweet_from_num = request.values.get("From", None)
+	if ((tweet_req != None) and (not tweet_req > 25) and (not tweet_req < 1) and (tweet_from_num != None)):
+		try:
+			# Get the number of tweets
+			tweet_lst = read_n_tweets(tweet_from_num, tweet_req)
+			# Generate the response
+			resp = twilio.twiml.Response()
+			resp.message("Here are the tweets you requested from: " + db[tweet_from_num]["screen_name"] + "\n\n")
+			for twt in tweet_lst:
+				# Convert the tweet's text into ascii
+				unicode_twt = twt.text
+				tweet_str = unicode_twt.encode("ascii", "ignore")
+				# Get the number of favotites
+				tweet_str += "\n    Favorites: " + str(twt.favorite_count)
+				# Get the number of retweets
+				tweet_str += "\n    Retweets: " + str(twt.retweet_count)
+				# Create the message
+				resp.message(tweet_str)
+				print tweet_str
+			return resp
+		except tweepy.TweepError as e:
+			print e
+			print type(e)
+			print e.__dict__
+			print e.reason
+			print type(e.reason)
+			print e.response.status
+			print e.message[0]['code']
+			print e.args[0][0]['code']
+		except:
+			print "Unexpected error:", sys.exc_info()[0]
+			# Notify user of unsuccessful post
+			resp = twilio.twiml.Response()
+			header = "Read not successful. Resend previous number to try again.\n\n"
+			prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+			text = header + prompt
+			resp.message(header)
+			return resp
+	else:
+		# Nothing to post
+		resp = twilio.twiml.Response()
+		header = "Read not successful. Resend previous number to try again.\n\n"
+		prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+		text = header + prompt
+		resp.message(header)
+		return resp		
+
 def handle_twitter_post():
 	"""
 	Take the user's input and post it to Twitter.
 	"""
+	# Update the state
+	session["state"] = "postingtweets"
+
 	tweet_text = request.values.get("Body", None)
 	tweet_from_num = request.values.get("From", None)
 	if (tweet_text != None) and (tweet_from_num != None):
 		try:
 			# Tweet it!
-			tweet(tweet_text)
+			tweet_text(tweet_from_num, tweet_text)
 			# Confirm the tweet was sent
 			resp = twilio.twiml.Response()
-			header = "Tweet posted:\n\n"
+			header = "Tweet posted to : " + db[tweet_from_num]["screen_name"] +"\n\n"
 			text = header + tweet_text
 			resp.message(text)
 			return resp
@@ -490,8 +558,10 @@ def handle_twitter_post():
 			print "Unexpected error:", sys.exc_info()[0]
 			# Notify user of unsuccessful post
 			resp = twilio.twiml.Response()
-			text = "Post not successful. Try again?"
-			resp.message(text)
+			header = "Post not successful. Resend tweet to try again.\n\n"
+			prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+			text = header + prompt
+			resp.message(header)
 			return resp
 	else:
 		# Nothing to post
@@ -626,8 +696,10 @@ state_trans = {
     "facebook": handle_facebook_menu_choice,
     # Twitter
     "twitter": handle_twitter_menu_choice,
-    "readtweets": read_tweets,
-    "posttweet": post_tweet,
+    "readtweets": handle_twitter_read,
+    "readingtweets": twitter,
+    "posttweet": handle_twitter_post,
+    "postingtweets": twitter,
     # Wikipedia
     "wikipedia": handle_wikipedia_menu_choice
 }
