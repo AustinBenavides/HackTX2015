@@ -83,18 +83,12 @@ def signup():
 
 	print name_in, phone_in
 
-	email_bool = True if request.form.get('email') != None else False
-	facebook_bool = True if request.form.get('facebook') != None else False
-	twitter_bool = True if request.form.get('twitter') != None else False
+	# Get facebook access info -- DON'T SAVE ANYTHING YET
 
 	# Get twitter access info
-	twitter_screen_name = ""
-	twitter_access_token = ""
-	twitter_access_token_secret = ""
-	if twitter_bool:
-		twitter_screen_name = session.get("screen_name")
-		twitter_access_token = session.get("access_token")
-		twitter_access_token_secret = session.get("access_token_secret")
+	twitter_screen_name = session.get("screen_name")
+	twitter_access_token = session.get("access_token")
+	twitter_access_token_secret = session.get("access_token_secret")
 
 	# (Over)write the data to the database
 	db[phone_in] = {"name": name_in, "screen_name": twitter_screen_name, "access_token": twitter_access_token,
@@ -105,7 +99,7 @@ def signup():
 
 	# Tell the user what he has registered for
 	features = ("EMAIL\n" if email_bool else "") + (" FACEBOOK\n" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
-	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled the following features:\n" + features + "\n" + "Text the feature name to get instructions!",
+	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled the following features:\n" + features + "\n" + "Text MENU to get instructions!",
 	to=phone_in,  # Replace with your phone number
 	from_=TWILIO_NUM) # Replace with your Twilio number
 
@@ -168,6 +162,7 @@ def get_twitter_account_tokens(from_num):
     	# Load two empty strings
     	access_token = ""
     	access_token_secret = ""
+    if (access_token.equals("")) or (access_token_secret.equals("")):
     	raise "No credentials!"
     print "Loaded twitter account info:", access_token, access_token_secret
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
