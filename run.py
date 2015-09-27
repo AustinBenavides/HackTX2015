@@ -135,6 +135,287 @@ def respond_to_user():
 	counter += 1
 	session["counter"] = counter
 
+	# Get the user's phone number and try to match it to a name
+	from_num = request.values.get("From", None)
+	is_registered = from_num in callers
+
+	response = ""
+
+	# If counter is zero, present the user with a display of options
+	if counter == 0:
+		# User has initiated session
+		if (is_registered):
+			# Present the user with a list of options
+			response = str(menu())
+		else:
+			# Tell the user to register online
+			response = str(reject_user())
+	else:
+		# Get function pointer to the next step
+		next = determine_next_prompt()
+		# Execute the next step
+		response = str(next())
+
+	return response
+
+def determine_next_prompt():
+	"""
+	Parse the body of the user's text message to determine what to
+	do next.
+	"""
+	# Read the body of the message
+	body = request.values.get("Body", None)
+
+	if body in control_cmds:
+		# User has entered a control command -- execute
+		return control_cmds[body]
+	else:
+		# Get the user's state and transition to next 
+		user_state = session.get("state", None)
+		if user_state != None:
+			return state_trans[user_state]
+		else:
+			return invalid_choice
+
+def back():
+	"""
+	Go back to the previous state and present the relevant info the user.
+	"""
+	# Revert to the previous state and act on it
+	return state_trans_back[session.get("state")]()
+
+def menu():
+	"""
+	Display the main menu and prompt the user to select a media category.
+	"""
+	# Update the user's state
+	session["state"] = "menu"
+
+	# Define message components
+	header = "Welcome to HackTX!\n\n"
+	question = "What would you like to do?\n"
+	op1 = "1) Email\n"
+	op2 = "2) Facebook\n"
+	op3 = "3) Twitter\n"
+	op4 = "4) Wikipedia\n\n"
+	prompt = "Text the number corresponding to your choice."
+
+	# Build the message
+	text = header + question + op1 + op2 + op3 + op4 + prompt
+
+	# Create the response and attach the message
+	resp = twilio.twiml.Response()
+	resp.message(text)
+
+	print "Listing options"
+
+	return resp
+
+def handle_menu_choice():
+	"""
+	Acts on the reader's choice from the menu.
+	"""
+	# Delegate control based on the user's choice
+	choice = request.values.get("Body", None)
+	if choice in menu_choices:
+		return menu_choices[choice]()
+	else:
+		return invalid_choice()
+
+def email():
+	"""
+	Display main menu for email.
+	"""
+	# Update the state
+	session["state"] = "Email"
+
+	#Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("You picked email!")
+
+	return resp
+
+def handle_email_menu_choice():
+	"""
+	Respond to user's selection of one of the email options.
+	"""
+	# Delegate control based on the user's choice
+	choice = request.values.get("Body", None)
+	if choice in email_choices:
+		return email_choices[choice]()
+	else:
+		return invalid_choice()
+
+def read_emails():
+	pass
+
+def send_email():
+	pass
+
+def facebook():
+	"""
+	Display main menu for Facebook.
+	"""
+	# Update the state
+	session["state"] = "facebook"
+
+	#Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("You picked Facebook!")
+
+	return resp
+
+def handle_facebook_menu_choice():
+	"""
+	Respond to user's selection of one of the Facebook options.
+	"""
+	# Delegate control based on the user's choice
+	choice = request.values.get("Body", None)
+	if choice in facebook_choices:
+		return facebook_choices[choice]()
+	else:
+		return invalid_choice()
+
+def read_statuses():
+	pass
+
+def post_status():
+	pass
+
+def twitter():
+	"""
+	Display main menu for Twitter.
+	"""
+	# Update the state
+	session["state"] = "twitter"
+
+	#Generate the response
+	resp = twilio.twiml.Response()
+	header = "You picked Twitter!\n\n"
+	question = "What would you like to do?\n"
+	op1 = "1) Read tweets\n"
+	op2 = "2) Post tweet\n\n" 
+	prompt = "Text the number corresponding to your choice, or text "
+	prompt2 = "BACK to go back, or MENU to go to the main menu."
+	text = header + question + op1 + op2 + prompt + prompt2
+	resp.message(text)
+
+	return resp
+
+def handle_twitter_menu_choice():
+	"""
+	Respond to user's selection of one of the Twitter options.
+	"""
+	# Delegate control based on the user's choice
+	choice = request.values.get("Body", None)
+	if choice in twitter_choices:
+		return twitter_choices[choice]()
+	else:
+		return invalid_choice()
+
+def read_tweets():
+	"""
+	Ask the user what number of tweets they would like to read, 
+	and present the requested number.
+	"""
+	# Update the state
+	session["state"] = "readtweets"
+
+	# Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("How many tweets would you like to read?")
+
+	return resp
+
+def post_tweet():
+	"""
+	Ask the user what they would like to write, and post it.
+	"""
+	# Update the state
+	session["state"] = "posttweet"
+
+	# Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("What would you like to post?")
+
+	return resp
+
+def wikipedia():
+	"""
+	Display main menu for Wikipedia.
+	"""
+	# Update the state
+	session["state"] = "wikipedia"
+
+	#Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("You picked Wikipedia!")
+
+	return resp
+
+def handle_wikipedia_menu_choice():
+	"""
+	Respond to user's selection of one of the Wikipedia options.
+	"""
+	# Delegate control based on the user's choice
+	choice = request.values.get("Body", None)
+	if choice in wikipedia_choices:
+		return wikipedia_choices[choice]()
+	else:
+		return invalid_choice()
+
+def read_wiki_page():
+	pass
+
+def reject_user():
+	"""
+	Tells an unregistered user to register online.
+	"""
+	# Update the user's state
+	session["state"] = "rejected"
+
+	# Tell user to register online.
+	header = "You're just one step away from accessing the web over text!\n\n"
+	prompt = "Just register at our site (INSERT SITE URL HERE) and we'll take it from there."
+
+	# Build the message
+	text = header + prompt
+
+	# Create the response and attach the message
+	resp = twilio.twiml.Response()
+	resp.message(text)
+
+def handle_rejection():
+	"""
+	Follows up with the user if they send a text after already
+	getting rejected for not being registered.
+	"""
+	#Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("Please register on our website (INSERT URL HERE)")
+
+	return resp
+
+def invalid_choice():
+	"""
+	Tells the user that they selected an invalid option and asks 
+	that they pick again. NOTE: does not update state.
+	"""
+	# Generate the response
+	resp = twilio.twiml.Response()
+	resp.message("Invalid choice. Please select a valid option.")
+
+	return resp
+
+def mirror_user():
+	"""
+	Mirror the messages sent from the user.
+	"""
+	# Count the number of times this user has texed us (this session)
+	counter = session.get("counter", 0)
+	counter += 1
+	session["counter"] = counter
+
 	# Get the number of the user who texted me
 	from_num = request.values.get("From", None)
 
@@ -165,10 +446,72 @@ def respond_to_user():
 	num_media = int(request.values.get("NumMedia", None))
 	print num_media
 	for i in range(num_media):
-		message.media(request.values.get("MediaUrl" + str(i), None))
+		message.menu_choices(request.values.get("MediaUrl" + str(i), None))
 		continue
 	return str(resp)
 
+control_cmds = {
+	"MENU": menu,
+	"BACK": back,
+}
+
+state_trans = {
+	"menu": handle_menu_choice,
+	"reject": handle_rejection,
+	# Email
+	"email": handle_email_menu_choice,
+	# Facebook
+	"facebook": handle_facebook_menu_choice,
+	# Twitter
+	"twitter": handle_twitter_menu_choice,
+	"readtweets": read_tweets,
+	"posttweet": post_tweet,
+	# Wikipedia
+	"wikipedia": handle_wikipedia_menu_choice
+}
+
+state_trans_back = {
+	"menu": menu,
+	"reject": respond_to_user,
+	# Email
+	"email": menu,
+	# Facebook
+	"facebook": menu,
+	# Twitter
+	"twitter": menu,
+	"readtweets": twitter,
+	"posttweet": twitter,
+	# Wikipedia
+	"wikipedia": menu
+}
+
+menu_choices = {
+	"1": email,
+	"2": facebook,
+	"3": twitter,
+	"4": wikipedia
+}
+
+email_choices = {
+	"1": read_emails,
+	"2": send_email
+}
+
+facebook_choices = {
+	"1": read_statuses,
+	"2": post_status
+}
+
+twitter_choices = {
+	"1": read_tweets,
+	"2": post_tweet
+}
+
+wikipedia_choices = {
+	"1": read_wiki_page
+}
+
+# Run as a script
 if __name__ == "__main__":
     app.run(debug=True)
 
