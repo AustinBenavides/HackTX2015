@@ -81,7 +81,7 @@ def get_twitter_token(token = None):
     if session.has_key('twitter_token'):
         del session['twitter_token']
     return session.get('twitter_token')
-    
+
 @app.route('/login')
 def login():
     access_token = session.get('access_token')
@@ -147,8 +147,6 @@ def tweet():
     api = get_twitter_account_tokens();
     api.update_status("hello")
     return redirect('/')
-
-
 
 
 
