@@ -15,10 +15,8 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# import newspaper
-from hackernews import HackerNews
-hn = HackerNews()
 
+from hackernews import HackerNews
 
 
 _name = ""
@@ -63,13 +61,6 @@ app.secret_key = "development key"
 
 @app.route('/')
 def index():
-    # print("")
-    # article = sina_paper.articles[0]
-    # article.download()
-    # article.parse()
-    # print(article.text)
-    for story_id in hn.top_stories(limit=10):
-        print hn.get_item(story_id).title
     return render_template('index.html', name = __name__)
 
 @app.route('/signup', methods = ['POST'])
@@ -164,6 +155,17 @@ def read_tweets():
 def tweet(tweet_content):
     api = get_twitter_account_tokens();
     api.update_status(tweet_content)
+
+####################################################################################
+###### Hacker News API #############################################################
+####################################################################################
+
+@app.route('/news')
+def get_news():
+    hn = HackerNews()
+    news = ""
+    for story_id in hn.top_stories(limit=10):
+        news = news + hn.get_item(story_id).title + "\n"
 
 # Create a list of registered numbers that can call
 callers = {
