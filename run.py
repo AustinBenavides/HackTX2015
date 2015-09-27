@@ -11,23 +11,19 @@ from flask import Flask, request, redirect, url_for, session, g, flash, \
      render_template
 from flask_oauth import OAuth
 
+import shelve
+
 import tweepy
 
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-_name = ""
-_phone = "+12145347832"
-
-accounts = {
-	
-}
-
+###Twilio Account Credentials -- specific to Austin's account
 ACCOUNT_SID = "ACba6adc0042509e7ced6d2bbbb700b8e6" 
 AUTH_TOKEN = "c51fd911c53fde73d78848b3f1bd4ca7" 
 
-###Twitter Credentials
+###Twitter Credentials -- specific to this app
 consumer_key = 'pfN8ThAB7BRVxiLgwdNZGsZgx'
 consumer_secret = 'KmoKfwtczF9feghCp9msCHr8lh0U7yfOPwdkuePrsku58yv54b'
 oauth = OAuth()
@@ -49,13 +45,17 @@ _twitter = oauth.remote_app('twitter',
     consumer_secret=consumer_secret
 )
 
+# Load up the database (persistent dictionary)
+db = shelve.open("userinfo")
+
+# Create the RESTful web client.
 client = TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN) 
 
+# Initialize Flask server
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.debug = True
 app.secret_key = "development key"
-
 
 @app.route('/')
 def index():
@@ -63,22 +63,37 @@ def index():
 
 @app.route('/signup', methods = ['POST'])
 def signup():
-	print session.get('access_token')
+	# Get the name and the phone number
+	name_in = request.cookies.get("name")
+	phone_in = "+1" + request.cookies.get("phone")
 
-	_name = request.form['name']
-	#_phone = "+1" + request.form['phone']
-	print _phone
-	email = True if request.form.get('email')!=None else False
-	facebook = True if request.form.get('facebook')!=None else False
-	twitter = True if request.form.get('twitter')!=None else False
+	print name_in, phone_in
 
-	features = ("EMAIL" if email else "") + (" FACEBOOK" if facebook else "") + ("TWITTER" if twitter else "")  
+	email_bool = True if request.form.get('email') != None else False
+	facebook_bool = True if request.form.get('facebook') != None else False
+	twitter_bool = True if request.form.get('twitter') != None else False
 
-	message = client.messages.create(body="Hi " + _name + ", welcome to Uiwi! You enabled "+ features + " features. Text the feature name to get instructions!",
-	to=_phone,  # Replace with your phone number
+	# Get twitter access info
+	twitter_screen_name = ""
+	twitter_access_token = ""
+	twitter_access_token_secret = ""
+	if twitter_bool:
+		twitter_screen_name = session.get("screen_name")
+		twitter_access_token = session.get("access_token")
+		twitter_access_token_secret = session.get("access_token_secret")
+
+	# (Over)write the data to the database
+	db[phone_in] = {"name": name_in, "screen_name": twitter_screen_name, "access_token": twitter_access_token,
+	"access_token_secret": twitter_access_token_secret}
+
+	print "Wrote to database"
+
+	# Tell the user what he has registered for
+	features = ("EMAIL" if email_bool else "") + (" FACEBOOK" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
+	message = client.messages.create(body="Hi " + name_in + ", welcome to Fetch! You enabled "+ features + " features. Text the feature name to get instructions!",
+	to=phone_in,  # Replace with your phone number
 	from_="+14695072796") # Replace with your Twilio number
 
-	# print("The  is '" + phone + "'" + " for " + name+","+email+facebook+str(twitter))
 	return redirect('/')
 
 ####################################################################################
@@ -98,15 +113,8 @@ def login():
     print access_token, access_token_secret
     if access_token is None:
         return _twitter.authorize(callback=url_for('oauth_authorized',
-        next=request.args.get('next') or request.referrer or None))
-    # else:
-    #     access_token = access_token[0]  
+        next=request.args.get('next') or request.referrer or None)) 
 
-    # Store the access_token and access_token_secret
-    accounts[_phone] = {"name": _name, "access_token": access_token,
-    "access_token_secret": access_token_secret}
-    print "Login ", _phone
-    print "Login ", accounts[_phone]
     return redirect('/')
 
 @app.route('/logout')
@@ -114,7 +122,6 @@ def logout():
     session.pop('screen_name', None)
     flash('You were signed out')
     return redirect(request.referrer or url_for('index'))
- 
  
 @app.route('/oauth-authorized')
 @_twitter.authorized_handler
@@ -137,17 +144,16 @@ def oauth_authorized(resp):
     
     return redirect(url_for('index'))
 
-def get_twitter_account_tokens():
-    acc_token = session.get('access_token')
-    print "GTAT", accounts[_phone]["access_token"], accounts[_phone]["access_token_secret"]
-    if acc_token == None:
-    	# Get the token from the user's phone number
-    	acc_token = accounts[_phone]["access_token"]
-    acc_token_secret = session.get('access_token_secret')
-    if acc_token_secret == None:
-    	# Get the secret token from the user's phone number
-    	acc_token_secret = accounts[_phone]["access_token_secret"]
-    print "GTAT", acc_token, acc_token_secret
+def get_twitter_account_tokens(from_num):
+    # See if the number is in the database
+    if db.has_key(from_num):
+    	# Load up the twitter account info
+    	access_token = db[from_num]["access_token"]
+    	access_token_secret = db[from_num]["access_token_secret"]
+    else:
+    	access_token = ""
+    	access_token_secret = ""
+    print "GTAT", access_token, access_token_secret
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(acc_token, acc_token_secret)
     api = tweepy.API(auth)
@@ -166,7 +172,7 @@ def read_tweets():
     return redirect('/')
 
 @app.route("/tweet")
-def tweet(tweet_content):
+def tweet(from_num, tweet_content):
     api = get_twitter_account_tokens();
     api.update_status(tweet_content)
     #return redirect("/")
@@ -399,7 +405,8 @@ def handle_twitter_post():
 	Take the user's input and post it to Twitter.
 	"""
 	tweet_text = request.values.get("Body", None)
-	if tweet_text != None:
+	tweet_from_num = request.values.get("From", None)
+	if (tweet_text != None) and (tweet_from_num != None):
 		try:
 			# Tweet it!
 			tweet(tweet_text)
@@ -428,8 +435,10 @@ def handle_twitter_post():
 	else:
 		# Nothing to post
 		resp = twilio.twiml.Response()
-		text = "Post not successful. Try again?"
-		resp.message(text)
+		header = "Post not successful. Resend tweet to try again.\n\n"
+		prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+		text = header + prompt
+		resp.message(header)
 		return resp
 
 def wikipedia():
