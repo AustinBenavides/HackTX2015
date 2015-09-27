@@ -16,11 +16,13 @@ from sqlalchemy.ext.declarative import declarative_base
 
  
 # put your own credentials here 
-ACCOUNT_SID = "AC88218c95eb28488e2e09a3e11f5e41f0" 
-AUTH_TOKEN = "26186a1b74c792f7e6cbfa64f39db691" 
+ACCOUNT_SID = "ACba6adc0042509e7ced6d2bbbb700b8e6" 
+AUTH_TOKEN = "c51fd911c53fde73d78848b3f1bd4ca7" 
  
 client = TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN) 
 
+
+# Each session object makes use of a secret key.
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.debug = True
@@ -56,21 +58,12 @@ def landingpage():
 	#twitter api
 
 	if request.method == 'POST':
-        if request.form['submit'] == 'Sign in with Twitter':
-        	access_token = session.get('access_token')
-        	if access_token is None:
+		if request.form['submit'] == 'Sign in with Twitter':
+			access_token = session.get('access_token')
+			if access_token is None:
 				return redirect(url_for('login'))
 			else:
 				access_token = access_token[0]
-            # pass # do something
-            
-        # elif request.form['submit'] == 'Do Something Else':
-        #     pass # do something else
-        # else:
-        #     pass # unknown
-	
- 
-	
 
 	return render_template('index.html', name = __name__)
 
@@ -126,26 +119,35 @@ def signup():
 	# print("The  is '" + phone + "'" + " for " + name+","+email+facebook+str(twitter))
 	return redirect('/')
 
-
-
 # Create a list of registered numbers that can call
 callers = {
 	"+12145347832": "Austin",
 	"+18325170044": "Zhifan"
 }
 
-@app.route("/", methods = ["GET", "POST"])
+@app.route("/respondtouser", methods = ["GET", "POST"])
 def respond_to_user():
 	"""
-	Respond to a text message using the sender's name.
+	Reply to the user's message with the appropriate response.
 	"""
+	# Count the number of times this user has texed us (this session)
+	counter = session.get("counter", 0)
+	counter += 1
+	session["counter"] = counter
+
 	# Get the number of the user who texted me
 	from_num = request.values.get("From", None)
+
+	# Search the user and add their name to the message
+	return_mess = ""
 	if from_num in callers:
-		return_mess = callers[from_num] + ", thanks for texting me!"
+		return_mess += callers[from_num] + ", thanks for texting me!"
 	else:
-		return_mess = "I don't know who you are, but thanks for the text!"
+		return_mess += "I don't know who you are, but thanks for the text!"
 	
+	# Tell user how many times they've texted this session
+	return_mess += "\n\nYou have texted us " + str(counter) + " times." 
+
 	# Send them their message back.
 	return_mess += "\n\n"
 	return_mess += "This is what you texted me: \n"
@@ -154,8 +156,17 @@ def respond_to_user():
 		return_mess += body
 	else:
 		return_mess += "You sent nothing :("
-	resp = twiml.Response()
-	resp.message(return_mess)
+
+	# Create the response
+	resp = twilio.twiml.Response()
+	message = resp.message(return_mess)
+
+	# Send them their images back
+	num_media = int(request.values.get("NumMedia", None))
+	print num_media
+	for i in range(num_media):
+		message.media(request.values.get("MediaUrl" + str(i), None))
+		continue
 	return str(resp)
 
 if __name__ == "__main__":
