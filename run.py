@@ -1,3 +1,5 @@
+import sys
+
 from flask import Flask, request, redirect, session, render_template
 from twilio.rest import TwilioRestClient 
 import twilio.twiml
@@ -170,8 +172,9 @@ def read_tweets():
 
 @app.route("/tweet")
 def tweet(from_num, tweet_content):
-    api = get_twitter_account_tokens();
-    api.update_status(tweet_content)
+	print db[from_num]
+	api = get_twitter_account_tokens(from_num)
+	api.update_status(tweet_content)
 
 ####################################################################################
 ###### Hacker News API #############################################################
@@ -179,10 +182,10 @@ def tweet(from_num, tweet_content):
 
 @app.route('/news')
 def get_news():
-    hn = HackerNews()
-    news = ""
-    for story_id in hn.top_stories(limit=10):
-        news = news + hn.get_item(story_id).title + "\n"
+	hn = HackerNews()
+	news = ""
+	for story_id in hn.top_stories(limit=10):
+		news = news + hn.get_item(story_id).title + "\n"
 
 # Create a list of registered numbers that can call
 callers = {
@@ -257,7 +260,7 @@ def menu():
     session["state"] = "menu"
 
     # Define message components
-    header = "Welcome to HackTX!\n\n"
+    header = "Welcome to Fetch!\n\n"
     question = "What would you like to do?\n"
     op1 = "1) Email\n"
     op2 = "2) Facebook\n"
@@ -414,10 +417,10 @@ def handle_twitter_post():
 	if (tweet_text != None) and (tweet_from_num != None):
 		try:
 			# Tweet it!
-			tweet(tweet_text)
+			tweet(tweet_from_num, tweet_text)
 			# Confirm the tweet was sent
 			resp = twilio.twiml.Response()
-			header = "Tweet posted:\n\n"
+			header = "Tweet posted to : " + db[tweet_from_num]["screen_name"] +"\n\n"
 			text = header + tweet_text
 			resp.message(text)
 			return resp
@@ -434,8 +437,10 @@ def handle_twitter_post():
 			print "Unexpected error:", sys.exc_info()[0]
 			# Notify user of unsuccessful post
 			resp = twilio.twiml.Response()
-			text = "Post not successful. Try again?"
-			resp.message(text)
+			header = "Post not successful. Resend tweet to try again.\n\n"
+			prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+			text = header + prompt
+			resp.message(header)
 			return resp
 	else:
 		# Nothing to post
@@ -571,7 +576,7 @@ state_trans = {
     # Twitter
     "twitter": handle_twitter_menu_choice,
     "readtweets": read_tweets,
-    "posttweet": post_tweet,
+    "posttweet": handle_twitter_post,
     # Wikipedia
     "wikipedia": handle_wikipedia_menu_choice
 }
