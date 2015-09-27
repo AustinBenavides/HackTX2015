@@ -101,7 +101,7 @@ def signup():
 	"access_token_secret": twitter_access_token_secret}
 
 	print "Wrote to database:"
-	print "Db at " + phone_in + " " + db[phone_in]
+	# print "Db at " + phone_in + " " + db[phone_in]
 
 	# Tell the user what he has registered for
 	features = ("EMAIL\n" if email_bool else "") + (" FACEBOOK\n" if facebook_bool else "") + (" TWITTER" if twitter_bool else "")  
@@ -174,7 +174,7 @@ def get_twitter_account_tokens(from_num):
     api = tweepy.API(auth)
     return api
 
-@app.route('/readTweets')
+# @app.route('/readTweets')
 def read_n_tweets(from_num, num_to_read):
 	print "in read_tweets"
 	api = get_twitter_account_tokens(from_num)
@@ -187,7 +187,7 @@ def read_n_tweets(from_num, num_to_read):
 		req_tweets.append(tweets[i])
 	return req_tweets
 
-@app.route("/tweet")
+# @app.route("/tweet")
 def tweet_text(from_num, tweet_content):
 	print "Database information for " + str(from_num) + str(db[from_num])
 	api = get_twitter_account_tokens(from_num)
