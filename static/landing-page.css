@@ -130,7 +130,7 @@ h6 {
 .banner {
     padding: 100px 0;
     color: #f8f8f8;
-    background: url(../img/banner-bg.jpg) no-repeat center center;
+    background: url('https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTn6e_yvEEKZGqngkOvFQKXiE5grEl9MBv8f3BIJGAnDVia4IA6BMWDw64') no-repeat center center;
     background-size: cover;
 }
 
