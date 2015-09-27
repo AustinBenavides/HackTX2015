@@ -1,5 +1,3 @@
-import sys
-
 from flask import Flask, request, redirect, session, render_template
 from twilio.rest import TwilioRestClient 
 import twilio.twiml
@@ -17,15 +15,19 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-_name = ""
-_phone = "+12145347832"
+# import newspaper
+from hackernews import HackerNews
+hn = HackerNews()
 
-accounts = {
-	
-}
+
+
+_name = ""
+_phone = ""
+
 
 ACCOUNT_SID = "ACba6adc0042509e7ced6d2bbbb700b8e6" 
 AUTH_TOKEN = "c51fd911c53fde73d78848b3f1bd4ca7" 
+
 
 ###Twitter Credentials
 consumer_key = 'pfN8ThAB7BRVxiLgwdNZGsZgx'
@@ -45,10 +47,12 @@ _twitter = oauth.remote_app('twitter',
     # user interface on the twitter side.
     authorize_url='https://api.twitter.com/oauth/authenticate',
     # the consumer keys from the twitter application registry.
-    consumer_key=consumer_key,
-    consumer_secret=consumer_secret
+    consumer_key='pfN8ThAB7BRVxiLgwdNZGsZgx',
+    consumer_secret='KmoKfwtczF9feghCp9msCHr8lh0U7yfOPwdkuePrsku58yv54b'
 )
 
+
+ 
 client = TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN) 
 
 app = Flask(__name__)
@@ -59,27 +63,32 @@ app.secret_key = "development key"
 
 @app.route('/')
 def index():
-	return render_template('index.html', name = __name__)
+    # print("")
+    # article = sina_paper.articles[0]
+    # article.download()
+    # article.parse()
+    # print(article.text)
+    for story_id in hn.top_stories(limit=10):
+        print hn.get_item(story_id).title
+    return render_template('index.html', name = __name__)
 
 @app.route('/signup', methods = ['POST'])
 def signup():
-	print session.get('access_token')
+    name = request.form['name']
+    phone = request.form['phone']
+    email = True if request.form.get('email')!=None else False
+    facebook = True if request.form.get('facebook')!=None else False
+    twitter = True if request.form.get('twitter')!=None else False
 
-	_name = request.form['name']
-	#_phone = "+1" + request.form['phone']
-	print _phone
-	email = True if request.form.get('email')!=None else False
-	facebook = True if request.form.get('facebook')!=None else False
-	twitter = True if request.form.get('twitter')!=None else False
 
-	features = ("EMAIL" if email else "") + (" FACEBOOK" if facebook else "") + ("TWITTER" if twitter else "")  
+    features = ("EMAIL" if email else "") + (" FACEBOOK" if facebook else "") + ("TWITTER" if twitter else "")  
 
-	message = client.messages.create(body="Hi " + _name + ", welcome to Uiwi! You enabled "+ features + " features. Text the feature name to get instructions!",
-	to=_phone,  # Replace with your phone number
-	from_="+14695072796") # Replace with your Twilio number
+    message = client.messages.create(body="Hi " + name + ", welcome to Uiwi! You enabled "+ features + " features. Text the feature name to get instructions!",
+    to="+1"+phone,    # Replace with your phone number
+    from_="+12564327214") # Replace with your Twilio number
 
-	# print("The  is '" + phone + "'" + " for " + name+","+email+facebook+str(twitter))
-	return redirect('/')
+    # print("The  is '" + phone + "'" + " for " + name+","+email+facebook+str(twitter))
+    return redirect('/')
 
 ####################################################################################
 ######Twitter API ##################################################################
@@ -95,18 +104,12 @@ def get_twitter_token(token = None):
 def login():
     access_token = session.get('access_token')
     access_token_secret = session.get('access_token_secret')
-    print access_token, access_token_secret
+    # print access_token, access_token_secret
     if access_token is None:
         return _twitter.authorize(callback=url_for('oauth_authorized',
         next=request.args.get('next') or request.referrer or None))
-    # else:
-    #     access_token = access_token[0]  
-
-    # Store the access_token and access_token_secret
-    accounts[_phone] = {"name": _name, "access_token": access_token,
-    "access_token_secret": access_token_secret}
-    print "Login ", _phone
-    print "Login ", accounts[_phone]
+    else:
+        access_token = access_token[0]  
     return redirect('/')
 
 @app.route('/logout')
@@ -138,18 +141,10 @@ def oauth_authorized(resp):
     return redirect(url_for('index'))
 
 def get_twitter_account_tokens():
-    acc_token = session.get('access_token')
-    print "GTAT", accounts[_phone]["access_token"], accounts[_phone]["access_token_secret"]
-    if acc_token == None:
-    	# Get the token from the user's phone number
-    	acc_token = accounts[_phone]["access_token"]
-    acc_token_secret = session.get('access_token_secret')
-    if acc_token_secret == None:
-    	# Get the secret token from the user's phone number
-    	acc_token_secret = accounts[_phone]["access_token_secret"]
-    print "GTAT", acc_token, acc_token_secret
+    access_token = session.get('access_token')
+    access_token_secret = session.get('access_token_secret')
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-    auth.set_access_token(acc_token, acc_token_secret)
+    auth.set_access_token(access_token, access_token_secret)
     api = tweepy.API(auth)
     return api
 
@@ -165,11 +160,10 @@ def read_tweets():
         #     break
     return redirect('/')
 
-@app.route("/tweet")
+@app.route('/tweet')
 def tweet(tweet_content):
     api = get_twitter_account_tokens();
     api.update_status(tweet_content)
-    #return redirect("/")
 
 # Create a list of registered numbers that can call
 callers = {
@@ -182,8 +176,6 @@ def respond_to_user():
     """
     Reply to the user's message with the appropriate response.
     """
-    print session.get("access_token")
-
     # Count the number of times this user has texed us (this session)
     counter = session.get("counter", 0)
     counter += 1
@@ -246,7 +238,7 @@ def menu():
     session["state"] = "menu"
 
     # Define message components
-    header = "Welcome to Fetch!\n\n"
+    header = "Welcome to HackTX!\n\n"
     question = "What would you like to do?\n"
     op1 = "1) Email\n"
     op2 = "2) Facebook\n"
@@ -260,6 +252,8 @@ def menu():
     # Create the response and attach the message
     resp = twilio.twiml.Response()
     resp.message(text)
+
+    print "Listing options"
 
     return resp
 
@@ -338,7 +332,6 @@ def twitter():
     """
     Display main menu for Twitter.
     """
-    print session.get('access_token')
     # Update the state
     session["state"] = "twitter"
 
@@ -384,7 +377,6 @@ def post_tweet():
     """
     Ask the user what they would like to write, and post it.
     """
-    print session.get('access_token')
     # Update the state
     session["state"] = "posttweet"
 
@@ -393,44 +385,6 @@ def post_tweet():
     resp.message("What would you like to post?")
 
     return resp
-
-def handle_twitter_post():
-	"""
-	Take the user's input and post it to Twitter.
-	"""
-	tweet_text = request.values.get("Body", None)
-	if tweet_text != None:
-		try:
-			# Tweet it!
-			tweet(tweet_text)
-			# Confirm the tweet was sent
-			resp = twilio.twiml.Response()
-			header = "Tweet posted:\n\n"
-			text = header + tweet_text
-			resp.message(text)
-			return resp
-		except tweepy.TweepError as e:
-			print e
-			print type(e)
-			print e.__dict__
-			print e.reason
-			print type(e.reason)
-			print e.response.status
-			print e.message[0]['code']
-			print e.args[0][0]['code']
-		except:
-			print "Unexpected error:", sys.exc_info()[0]
-			# Notify user of unsuccessful post
-			resp = twilio.twiml.Response()
-			text = "Post not successful. Try again?"
-			resp.message(text)
-			return resp
-	else:
-		# Nothing to post
-		resp = twilio.twiml.Response()
-		text = "Post not successful. Try again?"
-		resp.message(text)
-		return resp
 
 def wikipedia():
     """
@@ -557,7 +511,7 @@ state_trans = {
     # Twitter
     "twitter": handle_twitter_menu_choice,
     "readtweets": read_tweets,
-    "posttweet": handle_twitter_post,
+    "posttweet": post_tweet,
     # Wikipedia
     "wikipedia": handle_wikipedia_menu_choice
 }

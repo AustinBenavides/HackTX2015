@@ -4,7 +4,7 @@
     <head>
       
     </head>
-    <body>
+    <body onload="restoreInfo()">
       <form action="/signup" method="post">
         Phone:<input type="tel" name="phone" onBlur="storeInfo()"></input><br>
         Name: <input type="text" name="name" onBlur="storeInfo()"></input><br>
@@ -25,9 +25,18 @@
 
       function storeInfo() {    
         var phone = form['phone'].value;
-        document.cookie = "phone" + "=" + phone;
+        document.cookie = "phone" + "=" + phone + ";";
         var name = form["name"].value;
-        document.cookie = "name" + "=" + name;
+        document.cookie = "name" + "=" + name + ";";
+      }
+
+      function restoreInfo() {
+        var cookie_list = document.cookie.split(';');
+        var phone = cookie_list[0].substr(cookie_list[0].indexOf("=")+1);
+        var name = cookie_list[1].substr(cookie_list[1].indexOf("=")+1);
+        form["name"].value = name;
+        form["phone"].value = phone;
+
       }
     
     </script>
