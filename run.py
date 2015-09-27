@@ -12,10 +12,9 @@ from flask_oauth import OAuth
 import shelve
 
 import tweepy
+from facepy import GraphAPI
+import facebook
 
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 
 ###Twilio Account Credentials -- specific to Austin's account
 ACCOUNT_SID = "ACba6adc0042509e7ced6d2bbbb700b8e6" 
@@ -42,6 +41,20 @@ _twitter = oauth.remote_app('twitter',
     consumer_key='pfN8ThAB7BRVxiLgwdNZGsZgx',
     consumer_secret='KmoKfwtczF9feghCp9msCHr8lh0U7yfOPwdkuePrsku58yv54b'
 )
+
+###Facebook Credentials
+FACEBOOK_APP_ID = '1632050293739498'
+FACEBOOK_APP_SECRET = 'd52df17292bf6cc66fd9f5b7c6370350'
+_facebook = oauth.remote_app('facebook',
+    base_url='https://graph.facebook.com/',
+    request_token_url=None,
+    access_token_url='/oauth/access_token',
+    authorize_url='https://www.facebook.com/dialog/oauth',
+    consumer_key=FACEBOOK_APP_ID,
+    consumer_secret=FACEBOOK_APP_SECRET,
+    request_token_params={'scope': 'email'}
+)
+
 
 # Load up the database (persistent dictionary)
 db = shelve.open("userinfo")
@@ -183,6 +196,49 @@ def get_news():
     news = ""
     for story_id in hn.top_stories(limit=10):
         news = news + hn.get_item(story_id).title + "\n"
+
+####################################################################################
+###### Facebook API #############################################################
+####################################################################################
+
+@_facebook.tokengetter
+def get_facebook_oauth_token():
+    return session.get('oauth_token')
+
+
+@app.route('/flogin')
+def f_login():
+    return _facebook.authorize(callback=url_for('facebook_authorized',
+        next=request.args.get('next') or request.referrer or None,
+        _external=True))
+    # return redirect('/')
+
+
+@app.route('/login/authorized')
+@_facebook.authorized_handler
+def facebook_authorized(resp):
+    if resp is None:
+        return 'Access denied: reason=%s error=%s' % (
+            request.args['error_reason'],
+            request.args['error_description']
+        )
+    session['oauth_token'] = (resp['access_token'], '')
+    me = _facebook.get('/me')
+    # return 'Logged in as id=%s name=%s redirect=%s' % \
+    #     (me.data['id'], me.data['name'], request.args.get('next'))
+    return redirect('/')
+
+@app.route('/fpost')
+def f_post(picture):
+    graph = GraphAPI("CAAXMV1IDjZBoBAC0Be3HMvZA0lPPub735gJiSpwSqGmLTZBrZAqTki8tfqKAUUkAeMoKsKTZBT7nxgIj98S2rXdJk0l9UDnRxCyVi9DvSE5lniRBoUrZC7dx5b1NE5gQO3w6VFB1wqwf9G5OGNS56wGyDWHwBAomLDdTJfIWYX6nk6IetNq73ZC9ps9JuCPoOHOAf8vqjR1eAZDZD")
+    # print graph.get('me/posts')
+    graph.post(
+        path = 'me/photos',
+        # source = open('test.jpg', 'rb')
+        source = picture
+    )
+
+####################################################################################
 
 # Create a list of registered numbers that can call
 callers = {
