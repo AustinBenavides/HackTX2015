@@ -16,7 +16,7 @@ import shelve
 import tweepy
 from facepy import GraphAPI
 import facebook
-
+from hackernews import HackerNews
 
 ###Twilio Account Credentials -- specific to Austin's account
 TWILIO_NUM = "+14695072796"
@@ -168,6 +168,7 @@ def get_twitter_account_tokens(from_num):
     	# Load two empty strings
     	access_token = ""
     	access_token_secret = ""
+    	raise "No credentials!"
     print "Loaded twitter account info:", access_token, access_token_secret
     auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
     auth.set_access_token(access_token, access_token_secret)
@@ -198,12 +199,13 @@ def tweet_text(from_num, tweet_content):
 ####################################################################################
 
 @app.route('/news')
-def get_news():
+def get_news(from_num, num_headlines):
 	hn = HackerNews()
-	news = ""
-	for story_id in hn.top_stories(limit=10):
-		news = news + hn.get_item(story_id).title + "\n"
-
+	print "Starting HN"
+	news_lst = []
+	for story_id in hn.top_stories(limit=num_headlines):
+		news_lst.append(hn.get_item(story_id).title + "\n")
+	return news_lst
 ####################################################################################
 ###### Facebook API #############################################################
 ####################################################################################
@@ -322,10 +324,10 @@ def menu():
     # Define message components
     header = "Welcome to Fetch!\n\n"
     question = "What would you like to do?\n"
-    op1 = "1) Email\n"
-    op2 = "2) Facebook\n"
+    op1 = "1) Email(X)\n"
+    op2 = "2) Facebook(X)\n"
     op3 = "3) Twitter\n"
-    op4 = "4) Wikipedia\n\n"
+    op4 = "4) News\n\n"
     prompt = "Text the number corresponding to your choice."
 
     # Build the message
@@ -355,11 +357,15 @@ def email():
     Display main menu for email.
     """
     # Update the state
-    session["state"] = "Email"
+    session["state"] = "email"
 
     #Generate the response
     resp = twilio.twiml.Response()
-    resp.message("You picked email!")
+    header = "You picked email!\n\n"
+    warning = "This branch is still under construction.\n\n"
+    prompt = "Text BACK to go to the previous screen, or text MENU to go to the main menu."
+    text = header + warning + prompt
+    resp.message(text)
 
     return resp
 
@@ -389,7 +395,11 @@ def facebook():
 
     #Generate the response
     resp = twilio.twiml.Response()
-    resp.message("You picked Facebook!")
+    header = "You picked Facebook!\n\n"
+    warning = "This branch is still under construction.\n\n"
+    prompt = "Text BACK to go to the previous screen, or text MENU to go to the main menu."
+    text = header + warning + prompt
+    resp.message(text)
 
     return resp
 
@@ -467,7 +477,10 @@ def post_tweet():
 
     # Generate the response
     resp = twilio.twiml.Response()
-    resp.message("What would you like to post?")
+    header = "What would you like to post?\n\n"
+    prompt = prompt = "Text anything (except BACK or MENU) to tweet, BACK to return to the previous options, or MENU to return to the main menu."
+    text = header + prompt
+    resp.message(text)
 
     return resp
 
@@ -500,19 +513,24 @@ def handle_twitter_read():
 				print tweet_str
 			# Ask the user if they want to do anything else.
 			question = "Would you like to read more tweets?\n\n"
-		    prompt = "Text a number (1-25) to receive tweets, BACK to return to the previous menu, or MENU to return to the main menu."
-		    text = question + prompt
-		    resp.message(text)
+			prompt = "Text a number (1-25) to receive tweets, BACK to return to the previous menu, or MENU to return to the main menu."
+			text = question + prompt
+			resp.message(text)
 			return resp
-		except tweepy.TweepError as e:
-			print e
-			print type(e)
-			print e.__dict__
-			print e.reason
-			print type(e.reason)
-			print e.response.status
-			print e.message[0]['code']
-			print e.args[0][0]['code']
+		except "No credentials!" as e:
+			# Generate the response
+			resp = twilio.twiml.Response()
+			resp.message("You are not registered to read tweets. Please update your account information online.")
+			return resp
+		# except tweepy.TweepError as e:
+		# 	print e
+		# 	print type(e)
+		# 	print e.__dict__
+		# 	print e.reason
+		# 	print type(e.reason)
+		# 	print e.response.status
+		# 	print e.message[0]['code']
+		# 	print e.args[0][0]['code']
 		except:
 			print "Unexpected error:", sys.exc_info()[0]
 			# Notify user of unsuccessful post
@@ -551,19 +569,24 @@ def handle_twitter_post():
 			resp.message(text)
 			# Ask the user if they want to do anything else.
 			question = "Would you like to post another tweet?\n\n"
-		    prompt = "Send a text with anything (but BACK or MENU) to post it to twitter, BACK to return to the previous menu, or MENU to return to the main menu."
-		    text = question + prompt
-		    resp.message(text)
+			prompt = "Send a text with anything (but BACK or MENU) to post it to twitter, BACK to return to the previous menu, or MENU to return to the main menu."
+			text = question + prompt
+			resp.message(text)
 			return resp
-		except tweepy.TweepError as e:
-			print e
-			print type(e)
-			print e.__dict__
-			print e.reason
-			print type(e.reason)
-			print e.response.status
-			print e.message[0]['code']
-			print e.args[0][0]['code']
+		except "No credentials!" as e:
+			# Generate the response
+			resp = twilio.twiml.Response()
+			resp.message("You are not registered to send tweets. Please update your account information online.")
+			return resp
+		# except tweepy.TweepError as e:
+		# 	print e
+		# 	print type(e)
+		# 	print e.__dict__
+		# 	print e.reason
+		# 	print type(e.reason)
+		# 	print e.response.status
+		# 	print e.message[0]['code']
+		# 	print e.args[0][0]['code']
 		except:
 			print "Unexpected error:", sys.exc_info()[0]
 			# Notify user of unsuccessful post
@@ -582,32 +605,113 @@ def handle_twitter_post():
 		resp.message(header)
 		return resp
 
-def wikipedia():
+def news():
     """
-    Display main menu for Wikipedia.
+    Display main menu for News.
     """
     # Update the state
-    session["state"] = "wikipedia"
+    session["state"] = "news"
 
     #Generate the response
     resp = twilio.twiml.Response()
-    resp.message("You picked Wikipedia!")
+    header = "You picked News!\n\n"
+    question = "What would you like to do?\n"
+    op1 = "1) Read news\n\n"
+    prompt = "Text the number corresponding to your choice, "
+    prompt2 = "BACK to return to the previous menu, or MENU to go to the main menu."
+    text = header + question + op1 + prompt + prompt2
+    resp.message(text)
 
     return resp
 
-def handle_wikipedia_menu_choice():
+def handle_news_menu_choice():
     """
-    Respond to user's selection of one of the Wikipedia options.
+    Respond to user's selection of one of the News options.
     """
     # Delegate control based on the user's choice
     choice = request.values.get("Body", None)
-    if choice in wikipedia_choices:
-        return wikipedia_choices[choice]()
+    if choice in news_choices:
+        return news_choices[choice]()
     else:
         return invalid_choice()
 
-def read_wiki_page():
-    pass
+def read_news_page():
+    """
+    Ask the user how many headlines they want to read, and fetch them.
+    """
+    # Update the state
+    session["state"] = "readnews"
+
+    # Generate the response
+    resp = twilio.twiml.Response()
+    question = "How many headlines would you like to read?\n\n"
+    prompt = "Text a number (1-25) to receive headlines, BACK to return to the previous menu, or MENU to return to the main menu."
+    text = question + prompt
+    resp.message(text)
+
+    return resp
+
+def handle_news_read():
+	"""
+	Respond to user's selection for number of headlines to read, and present them.
+	"""
+	# Update the state
+	session["state"] = "readingnews"
+
+	news_req = int(request.values.get("Body", None))
+	news_from_num = request.values.get("From", None)
+	if ((news_req != None) and (not news_req > 25) and (not news_req < 1) and (news_from_num != None)):
+		try:
+			print news_from_num, news_req
+			# Get the number of tweets
+			news_lst = get_news(news_from_num, news_req)
+			print "Got news"
+			# Generate the response
+			resp = twilio.twiml.Response()
+			resp.message("Here are the headlines you requested from: HackerNews\n\n")
+			for hl in news_lst:
+				# Convert the tweet's text into ascii
+				hl_str = hl.encode("ascii", "ignore")
+				# Create the message
+				resp.message(hl_str)
+				print hl_str
+			# Ask the user if they want to do anything else.
+			question = "Would you like to read more news?\n\n"
+			prompt = "Text a number (1-25) to receive headlines, BACK to return to the previous menu, or MENU to return to the main menu."
+			text = question + prompt
+			resp.message(text)
+			return resp
+		except "No credentials!" as e:
+			# Generate the response
+			resp = twilio.twiml.Response()
+			resp.message("You are not registered to read news. Please update your account information online.")
+			return resp
+		# except tweepy.TweepError as e:
+		# 	print e
+		# 	print type(e)
+		# 	print e.__dict__
+		# 	print e.reason
+		# 	print type(e.reason)
+		# 	print e.response.status
+		# 	print e.message[0]['code']
+		# 	print e.args[0][0]['code']
+		except:
+			print "Unexpected error:", sys.exc_info()[0]
+			# Notify user of unsuccessful post
+			resp = twilio.twiml.Response()
+			header = "Read not successful. Resend previous number to try again.\n\n"
+			prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+			text = header + prompt
+			resp.message(header)
+			return resp
+	else:
+		# Nothing to post
+		resp = twilio.twiml.Response()
+		header = "Read not successful. Resend previous number to try again.\n\n"
+		prompt = "Text BACK to go to previous menu or MENU to go to the main menu."
+		text = header + prompt
+		resp.message(header)
+		return resp		
 
 def reject_user():
     """
@@ -701,17 +805,19 @@ state_trans = {
     "menu": handle_menu_choice,
     "reject": handle_rejection,
     # Email
-    "email": handle_email_menu_choice,
+    "email": email,
     # Facebook
-    "facebook": handle_facebook_menu_choice,
+    "facebook": facebook,
     # Twitter
     "twitter": handle_twitter_menu_choice,
     "readtweets": handle_twitter_read,
-    "readingtweets": twitter,
+    "readingtweets": handle_twitter_read,
     "posttweet": handle_twitter_post,
-    "postingtweets": twitter,
-    # Wikipedia
-    "wikipedia": handle_wikipedia_menu_choice
+    "postingtweets": handle_twitter_post,
+    # News
+    "news": handle_news_menu_choice,
+    "readnews": handle_news_read,
+    "readingnews": handle_news_read
 }
 
 state_trans_back = {
@@ -724,16 +830,20 @@ state_trans_back = {
     # Twitter
     "twitter": menu,
     "readtweets": twitter,
+    "readingtweets": twitter,
     "posttweet": twitter,
-    # Wikipedia
-    "wikipedia": menu
+    "postingtweets": twitter,
+    # News
+    "news": menu,
+    "readnews": news,
+    "readingnews": news
 }
 
 menu_choices = {
     "1": email,
     "2": facebook,
     "3": twitter,
-    "4": wikipedia
+    "4": news
 }
 
 email_choices = {
@@ -751,8 +861,8 @@ twitter_choices = {
     "2": post_tweet
 }
 
-wikipedia_choices = {
-    "1": read_wiki_page
+news_choices = {
+    "1": read_news_page
 }
 
 # Run as a script
